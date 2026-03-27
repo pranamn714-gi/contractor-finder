@@ -6,7 +6,7 @@ export default function UserDashboard() {
   const [error, setError] = useState("");
   const [selectedContractor, setSelectedContractor] = useState(null);
   const [userBookings, setUserBookings] = useState([]);
-  const [userRatings, setUserRatings] = useState([]); // ← NEW: store user's own ratings
+  const [userRatings, setUserRatings] = useState([]);
 
   // Search & Filters
   const [search, setSearch] = useState("");
@@ -19,16 +19,16 @@ export default function UserDashboard() {
   const [duration, setDuration] = useState("");
   const [cancellationHours, setCancellationHours] = useState("24");
 
-  // Rating form — used for both new + edit
+  // Rating form
   const [showRatingForm, setShowRatingForm] = useState(false);
   const [ratingContractorId, setRatingContractorId] = useState(null);
   const [ratingContractorName, setRatingContractorName] = useState("");
   const [stars, setStars] = useState(5);
   const [description, setDescription] = useState("");
-  const [isEditingRating, setIsEditingRating] = useState(false); // ← NEW
+  const [isEditingRating, setIsEditingRating] = useState(false);
 
   // Active dashboard tab
-  const [activeTab, setActiveTab] = useState("browse"); // "browse" | "myratings"
+  const [activeTab, setActiveTab] = useState("browse");
 
   // Toast
   const [toast, setToast] = useState({ msg: "", type: "success" });
@@ -61,10 +61,6 @@ export default function UserDashboard() {
           const bookingsData = await bookingsRes.json();
           setUserBookings(bookingsData);
         }
-
-        // ── Collect all ratings this user gave (embedded in contractors) ──
-        // We'll derive them from contractor.ratings where userName matches
-        // After contractors load we build the list in the effect below
       } catch (err) {
         setError(err.message);
       } finally {
@@ -78,8 +74,7 @@ export default function UserDashboard() {
   useEffect(() => {
     if (contractors.length === 0) return;
     const token = localStorage.getItem("token");
-    // Fetch each contractor's full Rating docs so we get the _id for delete
-    // We'll use the /api/ratings/:contractorId endpoint
+
     async function buildUserRatings() {
       try {
         const allRatings = [];
@@ -89,14 +84,10 @@ export default function UserDashboard() {
           });
           if (!res.ok) continue;
           const data = await res.json();
-          // Each rating has .user populated — match against logged-in user
           data.forEach(r => {
-            // token payload has id — compare via user._id
             allRatings.push({ ...r, contractorName: c.name, contractorId: c._id });
           });
         }
-        // We only want ratings where r.user._id matches logged-in user
-        // We decode the user id from token
         const payload = JSON.parse(atob(token.split(".")[1]));
         const myId = payload.id;
         setUserRatings(allRatings.filter(r => r.user?._id === myId || r.user === myId));
@@ -159,7 +150,7 @@ export default function UserDashboard() {
     setShowRatingForm(true);
   }
 
-  // ── Submit rating (create or update via upsert) ────
+  // ── Submit rating ──────────────────────────────────
   async function handleRating(e) {
     e.preventDefault();
     if (!description.trim()) { showToast("Please write a review", "error"); return; }
@@ -177,7 +168,6 @@ export default function UserDashboard() {
       setShowRatingForm(false);
       setStars(5); setDescription("");
 
-      // Refresh contractors + ratings
       const refreshRes = await fetch("http://localhost:5000/api/contractors", {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -295,7 +285,6 @@ export default function UserDashboard() {
                   : null;
                 const colorClass = `color-${(index % 6) + 1}`;
                 const hasBooked = userBookings.some(b => b.contractor?._id === contractor._id);
-                // Check if user already rated this contractor
                 const myRating = userRatings.find(r => r.contractorId === contractor._id);
 
                 return (
@@ -399,8 +388,6 @@ export default function UserDashboard() {
                       {hasBooked && (
                         <>
                           <a href="/my-bookings" className="btn-bookings-full">📋 See Booking Status</a>
-
-                          {/* Rate button — shows "Edit" if already rated */}
                           <button
                             className="btn-rate-full"
                             onClick={() => openRatingForm(contractor._id, contractor.name, myRating || null)}
@@ -423,13 +410,18 @@ export default function UserDashboard() {
                           <span style={{ fontSize:12, fontWeight:800, color:"rgba(255,255,255,0.5)", textTransform:"uppercase", letterSpacing:"0.5px" }}>
                             Your Review
                           </span>
+                          {/* ✅ FIXED: removed duplicate border key */}
                           <button
                             onClick={() => openRatingForm(contractor._id, contractor.name, myRating)}
                             style={{
-                              background:"transparent", border:"none", cursor:"pointer",
-                              fontSize:11, fontWeight:800, color:"#a78bfa",
-                              padding:"2px 8px", borderRadius:6,
+                              background:"transparent",
                               border:"1px solid rgba(167,139,250,0.3)",
+                              cursor:"pointer",
+                              fontSize:11,
+                              fontWeight:800,
+                              color:"#a78bfa",
+                              padding:"2px 8px",
+                              borderRadius:6,
                             }}
                           >✏️ Edit</button>
                         </div>
@@ -519,7 +511,6 @@ export default function UserDashboard() {
                   {/* Header row */}
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:10 }}>
                     <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                      {/* Contractor avatar */}
                       <div style={{
                         width:44, height:44, borderRadius:12, flexShrink:0,
                         background:"linear-gradient(135deg,#06b6d4,#34d399)",
@@ -587,7 +578,7 @@ export default function UserDashboard() {
       )}
 
       {/* ════════════════════════════════════════
-          RATING MODAL (create + edit)
+          RATING MODAL
       ════════════════════════════════════════ */}
       {showRatingForm && (
         <div className="modal-overlay" onClick={() => setShowRatingForm(false)}>
