@@ -1,0 +1,52 @@
+// Home route
+app.get("/", (req, res) => {
+  res.send(`
+    <html>
+      <head>
+        <title>Contractor Finder</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            background: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            text-align: center;
+          }
+          header {
+            background: #333;
+            color: #fff;
+            padding: 20px;
+          }
+          h1 {
+            margin: 0;
+          }
+          .content {
+            padding: 40px;
+          }
+          a {
+            display: inline-block;
+            margin: 10px;
+            padding: 10px 20px;
+            background: #28a745;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 5px;
+          }
+          a:hover {
+            background: #218838;
+          }
+        </style>
+      </head>
+      <body>
+        <header>
+          <h1>Welcome to Contractor Finder</h1>
+        </header>
+        <div class="content">
+          <p>Find contractors, book services, and manage ratings easily.</p>
+          <a href="/api/auth/signup">Sign Up</a>
+          <a href="/api/auth/login">Login</a>
+        </div>
+      </body>
+    </html>
+  `);
+});
