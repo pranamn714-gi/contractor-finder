@@ -32,27 +32,42 @@ app.use("/api/ratings",     ratingRoutes);
 app.use("/api/upload",      uploadRoutes);
 app.use("/api/admin",       adminRoutes);
 
-// Connect to MongoDB then start server
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(async () => {
-    console.log("✅ MongoDB connected");
+// ── Connect to MongoDB ─────────────────────────────
+async function connectDB() {
+  if (mongoose.connection.readyState >= 1) return; // already connected
+  await mongoose.connect(process.env.MONGO_URI);
+  console.log("✅ MongoDB connected");
 
-    // Auto-seed default admin if none exists
-    const existingAdmin = await Admin.findOne({ email: process.env.ADMIN_EMAIL });
-    if (!existingAdmin) {
-      // NOTE: Admin model auto-hashes via pre-save hook — do NOT pre-hash here
-      const admin = new Admin({
-        name: "Super Admin",
-        email: process.env.ADMIN_EMAIL,
-        password: process.env.ADMIN_PASSWORD,
-      });
-      await admin.save();
-      console.log(`✅ Default admin created: ${process.env.ADMIN_EMAIL}`);
-    }
+  // Auto-seed default admin if none exists
+  const existingAdmin = await Admin.findOne({ email: process.env.ADMIN_EMAIL });
+  if (!existingAdmin) {
+    const admin = new Admin({
+      name: "Super Admin",
+      email: process.env.ADMIN_EMAIL,
+      password: process.env.ADMIN_PASSWORD,
+    });
+    await admin.save();
+    console.log(`✅ Default admin created: ${process.env.ADMIN_EMAIL}`);
+  }
+}
 
-    app.listen(process.env.PORT || 5000, () =>
-      console.log(`🚀 Server running on port ${process.env.PORT || 5000}`)
-    );
-  })
-  .catch((err) => console.error("❌ MongoDB connection error:", err));
+// Call connectDB on every request (Vercel serverless requires this)
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error("❌ MongoDB connection error:", err);
+    res.status(500).json({ message: "Database connection failed" });
+  }
+});
+
+// ── Local development only ─────────────────────────
+if (process.env.NODE_ENV !== "production") {
+  app.listen(process.env.PORT || 5000, () =>
+    console.log(`🚀 Server running on port ${process.env.PORT || 5000}`)
+  );
+}
+
+// ── REQUIRED for Vercel ────────────────────────────
+module.exports = app;
