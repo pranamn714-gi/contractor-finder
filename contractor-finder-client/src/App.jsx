@@ -9,6 +9,11 @@ import UserDashboard from "./pages/UserDashboard";
 import ContractorDashboard from "./pages/ContractorDashBoard";
 import UserBookings from "./pages/UserBookings";
 
+// ✅ Contractor detail pages
+import BookingDetailsPage from "./pages/BookingDetailsPage";
+import ContractorBookings from "./pages/ContractorBookings";
+import ContractorReviewsPage from "./pages/ContractorReviewsPage";
+
 // ✅ Admin components
 import AdminLogin from "./components/AdminLogin";
 import AdminDashboard from "./components/AdminDashboard";
@@ -64,12 +69,42 @@ export default function App() {
           }
         />
 
-        {/* Contractor routes */}
+        {/* ✅ Contractor routes */}
         <Route
           path="/contractor/dashboard"
           element={
             <RequireAuth role="contractor">
               <ContractorDashboard />
+            </RequireAuth>
+          }
+        />
+
+        {/* ✅ Contractor Bookings List */}
+        <Route
+          path="/contractor/bookings"
+          element={
+            <RequireAuth role="contractor">
+              <ContractorBookings />
+            </RequireAuth>
+          }
+        />
+
+        {/* ✅ Contractor Booking Details */}
+        <Route
+          path="/contractor/bookings/:bookingId"
+          element={
+            <RequireAuth role="contractor">
+              <BookingDetailsPage />
+            </RequireAuth>
+          }
+        />
+
+        {/* ✅ Contractor reviews route */}
+        <Route
+          path="/contractor/reviews"
+          element={
+            <RequireAuth role="contractor">
+              <ContractorReviewsPage />
             </RequireAuth>
           }
         />

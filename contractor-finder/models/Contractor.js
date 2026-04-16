@@ -1,11 +1,6 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 
-// ─────────────────────────────────────────────────────────────
-// models/Contractor.js
-// status: "pending"  → registered, waiting admin approval
-//         "approved" → admin approved, can now login
-// ─────────────────────────────────────────────────────────────
 
 const contractorSchema = new mongoose.Schema(
   {
@@ -33,8 +28,8 @@ const contractorSchema = new mongoose.Schema(
         userName: String,
       },
     ],
-    // "pending"  = just registered, waiting admin approval
-    // "approved" = admin approved, contractor can log in
+    // "pending"  
+    // "approved" 
     status: {
       type: String,
       enum: ["pending", "approved"],
@@ -44,13 +39,13 @@ const contractorSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Hash password before saving
+// Hash password 
 contractorSchema.pre("save", async function () {
   if (!this.isModified("password")) return;
   this.password = await bcrypt.hash(this.password, 10);
 });
 
-// Compare entered password with hashed password
+// hashed password
 contractorSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };

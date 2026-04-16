@@ -101,7 +101,7 @@ export default function Footer() {
             Built with 
             <span className="heart">❤️</span> 
             by 
-            <span className="name">Pranam R</span>
+            <span className="name">Developer</span>
           </p>
           <div className="tech-stack">
             <span className="tech-badge">React</span>

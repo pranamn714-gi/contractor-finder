@@ -34,7 +34,7 @@ app.use("/api/admin",       adminRoutes);
 
 // ── Connect to MongoDB ─────────────────────────────
 async function connectDB() {
-  if (mongoose.connection.readyState >= 1) return; // already connected
+  if (mongoose.connection.readyState >= 1) return;
   await mongoose.connect(process.env.MONGO_URI);
   console.log("✅ MongoDB connected");
 
@@ -51,7 +51,8 @@ async function connectDB() {
   }
 }
 
-// Call connectDB on every request (Vercel serverless requires this)
+// ── Vercel: reconnect on each request if needed ────
+// (handles serverless cold starts where connection may have dropped)
 app.use(async (req, res, next) => {
   try {
     await connectDB();
@@ -62,12 +63,19 @@ app.use(async (req, res, next) => {
   }
 });
 
-// ── Local development only ─────────────────────────
+// ── Start server (local dev) ───────────────────────
 if (process.env.NODE_ENV !== "production") {
-  app.listen(process.env.PORT || 5000, () =>
-    console.log(`🚀 Server running on port ${process.env.PORT || 5000}`)
-  );
+  connectDB()                          // ← connect FIRST
+    .then(() => {
+      app.listen(process.env.PORT || 5000, () =>
+        console.log(`🚀 Server running on port ${process.env.PORT || 5000}`)
+      );
+    })
+    .catch((err) => {
+      console.error("❌ Failed to connect to MongoDB:", err.message);
+      process.exit(1);                 // ← stop if DB is unreachable
+    });
 }
 
-// ── REQUIRED for Vercel ────────────────────────────
+// ── Required for Vercel ────────────────────────────
 module.exports = app;

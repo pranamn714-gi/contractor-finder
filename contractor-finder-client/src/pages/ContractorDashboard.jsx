@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function ContractorDashboard() {
+  const navigate = useNavigate();
   const [contractor, setContractor] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,9 +17,9 @@ export default function ContractorDashboard() {
   const [machines, setMachines] = useState([]);
   const [wages, setWages] = useState("");
   const [additionalInfo, setAdditionalInfo] = useState("");
-  const [image, setImage] = useState(""); // This will store the server path/URL
-  const [imagePreview, setImagePreview] = useState(""); // This will store the preview URL
-  const [uploading, setUploading] = useState(false); // Track upload state
+  const [image, setImage] = useState("");
+  const [imagePreview, setImagePreview] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -54,19 +56,13 @@ export default function ContractorDashboard() {
         setWages(profileData.wages || "");
         setAdditionalInfo(profileData.additionalInfo || "");
         
-        // ✅ FIXED: Properly handle image from database
-        // The image field from backend will be either:
-        // 1. A relative path like "/uploads/contractor-123.jpg"
-        // 2. A full URL like "http://localhost:5000/uploads/contractor-123.jpg"
-        // 3. null/empty if no image
         if (profileData.image) {
-          // Construct full image URL for display
           const fullImageUrl = profileData.image.startsWith('http') 
             ? profileData.image 
             : `http://localhost:5000${profileData.image}`;
           
-          setImage(profileData.image); // Store as is (relative or absolute)
-          setImagePreview(fullImageUrl); // Use full URL for display
+          setImage(profileData.image);
+          setImagePreview(fullImageUrl);
         } else {
           setImage("");
           setImagePreview("");
@@ -82,17 +78,14 @@ export default function ContractorDashboard() {
     fetchData();
   }, []);
 
-  // ✅ FIXED: Handle image file selection - Upload to server with proper error handling
   async function handleImageChange(e) {
     const file = e.target.files[0];
     if (file) {
-      // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         alert("Image size must be less than 5MB");
         return;
       }
 
-      // Validate file type
       if (!file.type.startsWith('image/')) {
         alert("Please select a valid image file");
         return;
@@ -100,14 +93,12 @@ export default function ContractorDashboard() {
       
       setUploading(true);
       
-      // Create preview immediately (this is temporary, just for UI feedback)
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImagePreview(reader.result); // Show preview while uploading
+        setImagePreview(reader.result);
       };
       reader.readAsDataURL(file);
 
-      // Upload to server
       try {
         const token = localStorage.getItem("token");
         const formData = new FormData();
@@ -124,25 +115,22 @@ export default function ContractorDashboard() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || "Image upload failed");
         
-        // ✅ FIXED: Store the image path returned from server
-        // This should be a relative path like "/uploads/contractor-123-abc.jpg"
         if (data.imageUrl) {
-          setImage(data.imageUrl); // Store server path
+          setImage(data.imageUrl);
           
-          // Construct full URL for display
           const fullImageUrl = data.imageUrl.startsWith('http') 
             ? data.imageUrl 
             : `http://localhost:5000${data.imageUrl}`;
           
-          setImagePreview(fullImageUrl); // Update preview with full URL
+          setImagePreview(fullImageUrl);
           alert("✅ Image uploaded successfully! Don't forget to save your profile.");
         } else {
           throw new Error("No image URL returned from server");
         }
       } catch (err) {
         console.error("Upload error:", err);
-        setImagePreview(""); // Clear preview on error
-        setImage(""); // Clear image on error
+        setImagePreview("");
+        setImage("");
         alert("❌ Image upload failed: " + err.message);
       } finally {
         setUploading(false);
@@ -155,7 +143,6 @@ export default function ContractorDashboard() {
     try {
       const token = localStorage.getItem("token");
 
-      // ✅ FIXED: Ensure we're sending the correct image path to backend
       const res = await fetch(
         "http://localhost:5000/api/contractors/update-profile",
         {
@@ -173,7 +160,7 @@ export default function ContractorDashboard() {
             machines,
             wages,
             additionalInfo,
-            image, // This is the relative path like "/uploads/contractor-123.jpg"
+            image,
           }),
         }
       );
@@ -185,7 +172,6 @@ export default function ContractorDashboard() {
         ? updated.machines
         : [];
 
-      // ✅ FIXED: Update image preview with full URL after save
       if (updated.image) {
         const fullImageUrl = updated.image.startsWith('http') 
           ? updated.image 
@@ -202,29 +188,6 @@ export default function ContractorDashboard() {
     }
   }
 
-  async function handleStatus(id, status) {
-    try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(
-        `http://localhost:5000/api/bookings/update-status/${id}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ status }),
-        }
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to update status");
-      setBookings(bookings.map((b) => (b._id === id ? { ...b, status } : b)));
-    } catch (err) {
-      alert(err.message);
-    }
-  }
-
-  // dynamic fields
   function addSkill() {
     setSkills([...skills, ""]);
   }
@@ -263,22 +226,66 @@ export default function ContractorDashboard() {
         ).toFixed(1)
       : null;
 
+  const pendingBookingsCount = bookings.filter(b => b.status === 'pending').length;
+
   return (
     <div className="contractor-dashboard">
-      <div className="dashboard-header">
-        <h2>👷 Contractor Dashboard</h2>
-        {avgRating && (
-          <div className="rating-badge">
-            ⭐ {avgRating} / 5.0
-          </div>
-        )}
+      {/* Top Navigation Bar */}
+      <div className="dashboard-nav-header">
+        <div className="nav-left">
+          <h1>👷 Contractor Dashboard</h1>
+        </div>
+        <div className="nav-right">
+          {avgRating && (
+            <div className="rating-info">
+              <span className="rating-label">Your Rating:</span>
+              <span className="rating-value">⭐ {avgRating} / 5.0</span>
+            </div>
+          )}
+        </div>
       </div>
 
+      {/* Quick Action Buttons */}
+      <div className="quick-actions-section">
+        <button 
+          className="action-btn bookings-btn"
+          onClick={() => navigate('/contractor/bookings')}
+        >
+          <div className="action-btn-icon">📅</div>
+          <div className="action-btn-content">
+            <h4>Booking Requests</h4>
+            <p className="action-btn-subtext">View all your bookings</p>
+          </div>
+          {pendingBookingsCount > 0 && (
+            <span className="action-badge">{pendingBookingsCount}</span>
+          )}
+        </button>
+
+        <button 
+          className="action-btn reviews-btn"
+          onClick={() => navigate('/contractor/reviews')}
+        >
+          <div className="action-btn-icon">⭐</div>
+          <div className="action-btn-content">
+            <h4>Customer Reviews</h4>
+            <p className="action-btn-subtext">See all your ratings & feedback</p>
+          </div>
+          {contractor?.ratings?.length > 0 && (
+            <span className="action-badge">{contractor.ratings.length}</span>
+          )}
+        </button>
+      </div>
+
+      {/* Main Profile Management Section */}
       <div className="dashboard-section">
-        <h3 className="section-header">📋 My Profile</h3>
+        <div className="section-header-container">
+          <h3 className="section-header">✏️ Manage Your Profile</h3>
+          <p className="section-subtitle">Update your information, skills, and machines</p>
+        </div>
+
         <form onSubmit={handleProfileUpdate} className="profile-form">
           
-          {/* ✅ FIXED: Profile Image Upload Section */}
+          {/* Image Upload Section */}
           <div className="image-upload-section">
             <div className="image-preview-container">
               {imagePreview ? (
@@ -287,9 +294,8 @@ export default function ContractorDashboard() {
                   alt="Profile Preview"
                   className="profile-image-preview"
                   onError={(e) => {
-                    // Fallback if image fails to load
                     console.error("Image failed to load:", imagePreview);
-                    e.target.src = ""; // Show nothing if image fails
+                    e.target.src = "";
                   }}
                 />
               ) : (
@@ -304,6 +310,7 @@ export default function ContractorDashboard() {
             </div>
 
             <div className="image-upload-controls">
+              <h4 className="upload-title">Profile Picture</h4>
               <label className="upload-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -317,228 +324,174 @@ export default function ContractorDashboard() {
                   className="hidden-file-input"
                 />
               </label>
-              <p className="image-info">Max size: 5MB • JPG, PNG, GIF</p>
+              <p className="image-info">📋 Max size: 5MB • JPG, PNG, GIF</p>
               {uploading && <p className="uploading-text">📤 Uploading image...</p>}
             </div>
           </div>
 
-          <div className="form-grid">
-            <div className="form-group">
-              <label>Full Name</label>
-              <input 
-                className="form-input"
-                value={name} 
-                onChange={(e) => setName(e.target.value)} 
-              />
-            </div>
+          {/* Basic Information */}
+          <div className="form-section">
+            <h4 className="form-section-title">📋 Basic Information</h4>
+            <div className="form-grid">
+              <div className="form-group">
+                <label>Full Name</label>
+                <input 
+                  className="form-input"
+                  value={name} 
+                  onChange={(e) => setName(e.target.value)} 
+                  placeholder="Your full name"
+                />
+              </div>
 
-            <div className="form-group">
-              <label>Email Address</label>
-              <input 
-                className="form-input"
-                type="email"
-                value={email} 
-                onChange={(e) => setEmail(e.target.value)} 
-              />
-            </div>
+              <div className="form-group">
+                <label>Email Address</label>
+                <input 
+                  className="form-input"
+                  type="email"
+                  value={email} 
+                  onChange={(e) => setEmail(e.target.value)} 
+                  placeholder="your@email.com"
+                />
+              </div>
 
-            <div className="form-group">
-              <label>Phone Number</label>
-              <input
-                className="form-input"
-                type="tel"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                placeholder="e.g. +91-9876543210"
-              />
-            </div>
+              <div className="form-group">
+                <label>Phone Number</label>
+                <input
+                  className="form-input"
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  placeholder="+91-9876543210"
+                />
+              </div>
 
-            <div className="form-group">
-              <label>Location</label>
-              <input 
-                className="form-input"
-                value={location} 
-                onChange={(e) => setLocation(e.target.value)} 
-              />
-            </div>
+              <div className="form-group">
+                <label>Location</label>
+                <input 
+                  className="form-input"
+                  value={location} 
+                  onChange={(e) => setLocation(e.target.value)} 
+                  placeholder="Your city/area"
+                />
+              </div>
 
-            <div className="form-group full-width">
-              <label>Wages/Salary (₹ per day)</label>
-              <input
-                className="form-input"
-                type="number"
-                value={wages}
-                onChange={(e) => setWages(e.target.value)}
-              />
-            </div>
+              <div className="form-group full-width">
+                <label>Wages/Salary (₹ per day)</label>
+                <input
+                  className="form-input"
+                  type="number"
+                  value={wages}
+                  onChange={(e) => setWages(e.target.value)}
+                  placeholder="Enter your daily rate"
+                />
+              </div>
 
-            <div className="form-group full-width">
-              <label>Additional Information</label>
-              <textarea
-                className="form-textarea"
-                value={additionalInfo}
-                onChange={(e) => setAdditionalInfo(e.target.value)}
-                rows="3"
-              />
+              <div className="form-group full-width">
+                <label>Additional Information</label>
+                <textarea
+                  className="form-textarea"
+                  value={additionalInfo}
+                  onChange={(e) => setAdditionalInfo(e.target.value)}
+                  placeholder="Tell us about yourself, experience, certifications, etc."
+                  rows="4"
+                />
+              </div>
             </div>
           </div>
 
           {/* Skills Section */}
           <div className="dynamic-section">
             <div className="section-title-row">
-              <label className="dynamic-label">🛠️ Skills</label>
+              <h4 className="form-section-title">🛠️ Skills</h4>
               <button type="button" className="add-btn" onClick={addSkill}>
                 ➕ Add Skill
               </button>
             </div>
             <div className="dynamic-items">
-              {skills.map((s, i) => (
-                <div key={i} className="dynamic-item">
-                  <input
-                    className="dynamic-input"
-                    value={s}
-                    onChange={(e) => updateSkill(i, e.target.value)}
-                    placeholder="Enter skill"
-                  />
-                  <button 
-                    type="button" 
-                    className="remove-btn"
-                    onClick={() => removeSkill(i)}
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
+              {skills.length === 0 ? (
+                <p className="empty-items-text">No skills added yet. Click "Add Skill" to get started.</p>
+              ) : (
+                skills.map((s, i) => (
+                  <div key={i} className="dynamic-item">
+                    <input
+                      className="dynamic-input"
+                      value={s}
+                      onChange={(e) => updateSkill(i, e.target.value)}
+                      placeholder="e.g. Excavator Operation, Soil Preparation"
+                    />
+                    <button 
+                      type="button" 
+                      className="remove-btn"
+                      onClick={() => removeSkill(i)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
           {/* Machines Section */}
           <div className="dynamic-section machines-section">
             <div className="section-title-row">
-              <label className="dynamic-label">🚜 Machines</label>
+              <h4 className="form-section-title">🚜 Machines You Own</h4>
               <button type="button" className="add-btn" onClick={addMachine}>
                 ➕ Add Machine
               </button>
             </div>
             <div className="machines-grid">
-              {machines.map((m, i) => (
-                <div key={i} className="machine-card">
-                  <input
-                    className="machine-type-input"
-                    placeholder="Machine Type"
-                    value={m.type}
-                    onChange={(e) => updateMachine(i, "type", e.target.value)}
-                  />
-                  <input
-                    className="machine-price-input"
-                    type="number"
-                    placeholder="Price/hour (₹)"
-                    value={m.pricePerHour}
-                    onChange={(e) =>
-                      updateMachine(i, "pricePerHour", Number(e.target.value))
-                    }
-                  />
-                  <label className="worker-checkbox">
+              {machines.length === 0 ? (
+                <p className="empty-items-text full-width">No machines added yet. Click "Add Machine" to list your equipment.</p>
+              ) : (
+                machines.map((m, i) => (
+                  <div key={i} className="machine-card">
                     <input
-                      type="checkbox"
-                      checked={m.workerAvailable}
+                      className="machine-type-input"
+                      placeholder="Machine Type (e.g., Excavator)"
+                      value={m.type}
+                      onChange={(e) => updateMachine(i, "type", e.target.value)}
+                    />
+                    <input
+                      className="machine-price-input"
+                      type="number"
+                      placeholder="Price/hour (₹)"
+                      value={m.pricePerHour}
                       onChange={(e) =>
-                        updateMachine(i, "workerAvailable", e.target.checked)
+                        updateMachine(i, "pricePerHour", Number(e.target.value))
                       }
                     />
-                    <span>Worker available</span>
-                  </label>
-                  <button 
-                    type="button" 
-                    className="remove-machine-btn"
-                    onClick={() => removeMachine(i)}
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
+                    <label className="worker-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={m.workerAvailable}
+                        onChange={(e) =>
+                          updateMachine(i, "workerAvailable", e.target.checked)
+                        }
+                      />
+                      <span>Worker available</span>
+                    </label>
+                    <button 
+                      type="button" 
+                      className="remove-machine-btn"
+                      onClick={() => removeMachine(i)}
+                      title="Delete this machine"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
-          <button type="submit" className="save-profile-btn" disabled={uploading}>
-            💾 Save Profile
-          </button>
+          {/* Save Button */}
+          <div className="form-actions">
+            <button type="submit" className="save-profile-btn" disabled={uploading}>
+              {uploading ? "⏳ Saving..." : "💾 Save Profile"}
+            </button>
+          </div>
         </form>
-      </div>
-
-      {/* Bookings Section */}
-      <div className="dashboard-section">
-        <h3 className="section-header">📅 Booking Requests</h3>
-        {bookings.length === 0 ? (
-          <div className="empty-state">
-            <p>📭 No booking requests yet.</p>
-          </div>
-        ) : (
-          <div className="bookings-grid">
-            {bookings.map(b => (
-              <div key={b._id} className={`booking-card status-${b.status}`}>
-                <div className="booking-header">
-                  <span className="status-badge">{b.status}</span>
-                </div>
-                <div className="booking-details">
-                  <div className="detail-row">
-                    <span className="detail-label">👤 User:</span>
-                    <span className="detail-value">{b.user?.name || "Unknown"}</span>
-                  </div>
-                  <div className="detail-row">
-                    <span className="detail-label">📅 Date:</span>
-                    <span className="detail-value">
-                      {b.date ? new Date(b.date).toLocaleDateString() : "N/A"}
-                    </span>
-                  </div>
-                  <div className="detail-row">
-                    <span className="detail-label">🚜 Machine:</span>
-                    <span className="detail-value">{b.machineType || "N/A"}</span>
-                  </div>
-                </div>
-                {b.status === "pending" && (
-                  <div className="booking-actions">
-                    <button 
-                      className="accept-btn"
-                      onClick={() => handleStatus(b._id, "approved")}
-                    >
-                      ✓ Accept
-                    </button>
-                    <button 
-                      className="reject-btn"
-                      onClick={() => handleStatus(b._id, "rejected")}
-                    >
-                      ✕ Reject
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Ratings Section */}
-      <div className="dashboard-section">
-        <h3 className="section-header">⭐ Customer Ratings</h3>
-        {(contractor?.ratings || []).length === 0 ? (
-          <div className="empty-state">
-            <p>📊 No ratings yet.</p>
-          </div>
-        ) : (
-          <div className="ratings-grid">
-            {contractor.ratings.map((r, i) => (
-              <div key={i} className="rating-card">
-                <div className="rating-stars">
-                  {"⭐".repeat(r.stars)}
-                  <span className="star-count">{r.stars} / 5</span>
-                </div>
-                <p className="rating-description">{r.description}</p>
-                <p className="rating-author">— {r.userName}</p>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
